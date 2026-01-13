@@ -1,33 +1,50 @@
+import requests
 import json
-import os
-from openai import OpenAI
+import re
+from config import GEMINI_API_KEY
 from prompts import LOGISTICS_SYSTEM_PROMPT
-from config import OPENAI_API_KEY
-
-# Initialize the client
-# We use the key from your config file
-client = OpenAI(api_key=OPENAI_API_KEY)
 
 def extract_logistics_data(invoice_text: str) -> dict:
-    """
-    Sends invoice text to LLM and returns structured JSON data.
-    """
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Fast and cheap model
-            messages=[
-                {"role": "system", "content": LOGISTICS_SYSTEM_PROMPT},
-                {"role": "user", "content": invoice_text}
-            ],
-            temperature=0  # 0 means "be strict, don't be creative"
-        )
+    # We use the generic alias "gemini-flash-latest" found in your list.
+    # This points to the stable version (1.5) which usually has an open Free Tier.
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_API_KEY}"
+    
+    headers = {"Content-Type": "application/json"}
+    
+    final_prompt = (
+        f"{LOGISTICS_SYSTEM_PROMPT}\n\n"
+        "INSTRUCTIONS: Analyze the invoice below. "
+        "Return ONLY valid JSON. Do not write 'Here is the JSON' or use Markdown.\n\n"
+        f"INVOICE TEXT:\n{invoice_text}"
+    )
+    
+    payload = {
+        "contents": [{
+            "parts": [{"text": final_prompt}]
+        }]
+    }
 
-        # Extract the content from the AI's answer
-        ai_content = response.choices[0].message.content
+    print(f"🔌 Connecting to Google AI (Stable Flash)...")
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload)
         
-        # Parse the text into a real Python dictionary
-        return json.loads(ai_content)
+        # If blocked, print the raw error
+        if response.status_code != 200:
+            print(f"❌ GOOGLE REFUSED: {response.status_code}")
+            print(response.text)
+            return {}
+
+        # If success, process the Real Data
+        data = response.json()
+        ai_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Clean the text
+        clean_text = re.sub(r"```json|```", "", ai_text).strip()
+        
+        print("✅ Real AI Success!")
+        return json.loads(clean_text)
 
     except Exception as e:
-        print(f"Error calling AI: {e}")
+        print(f"❌ Connection Error: {e}")
         return {}
