@@ -61,7 +61,7 @@ st.title("🌍 EcoChain AI: Supply Chain Carbon Calculator")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
-    api_url = st.text_input("API URL", "http://127.0.0.1:8000")
+    api_url = st.text_input("API URL", " https://ecochain-backend-api.onrender.com")
     st.info("Ensure FastAPI is running!")
 
 tab1, tab2 = st.tabs(["📝 Manual Input", "📄 Upload Invoice (AI)"])
